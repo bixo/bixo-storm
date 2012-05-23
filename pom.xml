@@ -1,0 +1,143 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+      
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.scaleunlimited</groupId>
+	<artifactId>bixo-storm</artifactId>
+	<name>Continuous Web Crawler via Storm</name>
+	<packaging>jar</packaging>
+	<version>1.0-SNAPSHOT</version>
+	<repositories>
+		<repository>
+			<id>Bixo</id>
+			<name>Bixo GitHub Maven2 Repository</name>
+			<url>http://bixo.github.com/repo/</url>
+		</repository>
+		
+        <repository>
+            <id>bixolabs</id>
+            <name>Bixo Labs Maven2 Repository</name>
+            <url>http://bixolabs.github.com/repo/</url>
+        </repository>
+        
+		<repository>
+			<id>Conjars</id>
+			<name>Cascading Maven2 Repository</name>
+			<url>http://conjars.org/repo/</url>
+		</repository>
+		
+		<!-- For Storm -->
+		<repository>
+			<id>clojars.org</id>
+			<url>http://clojars.org/repo</url>
+		</repository>
+	</repositories>
+	
+	<dependencies>
+        <dependency>
+            <groupId>args4j</groupId>
+            <artifactId>args4j</artifactId>
+            <version>2.0.18</version>
+        </dependency>
+
+		<dependency>
+			<groupId>bixo</groupId>
+			<artifactId>bixo-core</artifactId>
+			<version>1.0-SNAPSHOT</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.pdfbox</groupId>
+                    <artifactId>pdfbox</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.poi</groupId>
+                    <artifactId>poi</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.poi</groupId>
+                    <artifactId>poi-ooxml</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.poi</groupId>
+                    <artifactId>poi-scratchpad</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>rome</groupId>
+                    <artifactId>rome</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>edu.ucar</groupId>
+                    <artifactId>netcdf</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcprov-jdk15</artifactId>
+                </exclusion>
+            </exclusions>
+		</dependency>
+
+		<dependency>
+    		<groupId>com.bixolabs</groupId>
+			<artifactId>html.utils</artifactId>
+			<version>1.0-SNAPSHOT</version>
+		</dependency>
+
+		<dependency>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+            <version>1.2.14</version>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-core</artifactId>
+            <version>0.20.2</version>
+        </dependency>
+        
+        <!-- Provided -->
+        
+        <dependency>
+            <groupId>storm</groupId>
+            <artifactId>storm</artifactId>
+            <version>0.7.0</version>
+            <!-- keep storm out of the jar-with-dependencies -->
+            <scope>provided</scope>
+        </dependency>
+
+		<dependency>
+            <groupId>ant-eclipse</groupId>
+            <artifactId>ant-eclipse-jvm1.2</artifactId>
+            <version>1.0</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Test -->
+        
+		<dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.7</version>
+            <scope>test</scope>
+        </dependency>
+
+		<dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>1.8.0</version>
+            <scope>test</scope>
+        </dependency>
+
+	</dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.apache.zookeeper</groupId>
+                <artifactId>zookeeper</artifactId>
+                <version>3.3.5</version>
+                <scope>provided</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+</project>
