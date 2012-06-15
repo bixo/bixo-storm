@@ -3,10 +3,19 @@ package bixo.storm;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.io.Serializable;
 
 import org.apache.hadoop.io.Writable;
 
-public class UrlDatum implements Writable  {
+/**
+ * UrlDatum needs to be writable for our Kafka serialization, and
+ * serializable for our LocalPubSubTopic.
+ * 
+ * @author kenkrugler
+ *
+ */
+@SuppressWarnings("serial")
+public class UrlDatum implements Serializable, Writable {
 
     // TODO change status to enum (need to update UrlDatumEncoder/decoder, etc)
     // TODO add status time field.

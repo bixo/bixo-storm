@@ -9,8 +9,6 @@ import java.util.Map;
 
 import org.apache.log4j.Logger;
 
-import kafka.javaapi.producer.Producer;
-import kafka.javaapi.producer.ProducerData;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.BasicOutputCollector;
 import backtype.storm.topology.OutputFieldsDeclarer;
@@ -28,8 +26,16 @@ public class RobotsBolt extends BaseBasicBolt {
     
     private transient Map<String, SimpleRobotRules> _robotRules;
     private transient Map<String, String> _ipAddresses;
-    private transient Producer<String, UrlDatum> _producer;
 
+    private BasePubSubTopic _publisher;
+    
+    public RobotsBolt(IPubSub topics) {
+        super();
+        
+        _publisher = topics.getTopic(IPubSub.UPDATE_URLS_TOPIC_NAME);
+    }
+    
+    @SuppressWarnings("rawtypes")
     @Override
     public void prepare(Map stormConf, TopologyContext context) {
         super.prepare(stormConf, context);
@@ -39,7 +45,6 @@ public class RobotsBolt extends BaseBasicBolt {
         
         // TODO allocate fetcher for getting robots.txt file, if needed.
 
-        _producer = KafkaUtils.createUrlProducer();
     }
     
 
@@ -88,12 +93,12 @@ public class RobotsBolt extends BaseBasicBolt {
         // See if we need to filter out this URL.
         if (rules == null) {
             // TODO remove this once we fix up UnknownHostException handlign above.
-            _producer.send(new ProducerData<String, UrlDatum>(CrawlerConfig.KAFKA_UPDATE_TOPIC, new UrlDatum(url, "invalid")));
+            _publisher.publish(new UrlDatum(url, "invalid"));
         } else if (rules.isDeferVisits()) {
-            _producer.send(new ProducerData<String, UrlDatum>(CrawlerConfig.KAFKA_UPDATE_TOPIC, new UrlDatum(url, "deferred")));
+            _publisher.publish(new UrlDatum(url, "deferred"));
             // TODO ack immediately
         } else if (!rules.isAllowed(url)) {
-            _producer.send(new ProducerData<String, UrlDatum>(CrawlerConfig.KAFKA_UPDATE_TOPIC, new UrlDatum(url, "blocked")));
+            _publisher.publish(new UrlDatum(url, "blocked"));
             // TODO ack immediately
         } else {
             collector.emit(new Values(url, status, hostname, _ipAddresses.get(hostname), rules.getCrawlDelay()));

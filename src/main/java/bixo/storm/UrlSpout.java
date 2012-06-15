@@ -1,18 +1,10 @@
 package bixo.storm;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.log4j.Logger;
 
-import kafka.consumer.Consumer;
-import kafka.consumer.ConsumerConfig;
-import kafka.consumer.KafkaMessageStream;
-import kafka.javaapi.consumer.ConsumerConnector;
-import kafka.message.Message;
 import backtype.storm.Config;
 import backtype.storm.spout.SpoutOutputCollector;
 import backtype.storm.task.TopologyContext;
@@ -29,52 +21,37 @@ public class UrlSpout extends BaseRichSpout {
     
     private static final int MAX_QUEUED_URLS = 1000;
 
+    private final BasePubSubTopic _subscriber;
+    
     protected transient SpoutOutputCollector _collector;
     private transient LinkedBlockingQueue<UrlDatum> _queue = null;
     private transient ThreadedExecutor _executor;
-
+    
+    public UrlSpout(IPubSub topics) {
+        super();
+        
+        _subscriber = topics.getTopic(IPubSub.FETCH_URLS_TOPIC_NAME);
+    }
+    
     @SuppressWarnings("rawtypes")
     @Override
     public void open(Map conf, TopologyContext context, SpoutOutputCollector collector) {
         _collector = collector;
-        
+
         _queue = new LinkedBlockingQueue<UrlDatum>(MAX_QUEUED_URLS);
 
         _executor = new ThreadedExecutor(1, CrawlerConfig.MAX_CONSUMER_DURATION);
 
-        // Set up to be a Kafka consumer, handling URL fetch requests.
-        Properties consumerProps = new Properties();
-        consumerProps.put("groupid", CrawlerConfig.KAFKA_GROUP_ID);
-        
-        // TODO - figure out what's really needed here.
-        // consumerProps.put("consumer.timeout.ms", "" + MAX_CONSUMER_DURATION);
-        consumerProps.put("zk.connect", "127.0.0.1:2181");
-        consumerProps.put("zk.connectiontimeout.ms", "1000000");
-        consumerProps.put("broker.list", "0:localhost:9092");
-
-        // Create the connection to the cluster
-        ConsumerConfig consumerConfig = new ConsumerConfig(consumerProps);
-        ConsumerConnector consumerConnector = Consumer.createJavaConsumerConnector(consumerConfig);
-
-        Map<String, Integer> streamInfo = new HashMap<String, Integer>();
-        streamInfo.put(CrawlerConfig.KAFKA_FETCH_TOPIC, 1);
-        
-        List<KafkaMessageStream<Message>> streams = consumerConnector.createMessageStreams(streamInfo).get(CrawlerConfig.KAFKA_FETCH_TOPIC);
-        for (final KafkaMessageStream<Message> stream : streams) {
-            _executor.execute(new Runnable() {
-                public void run() {
-                    UrlDatumDecoder decoder = new UrlDatumDecoder();
-                    
-                    for (Message message : stream) {
-                            UrlDatum newUrl = decoder.toEvent(message);
-                            LOGGER.info("Consumed URL from Kafka: " + newUrl);
-                            // TODO what to do when the queue is full? Just spin here until
-                            // it becomes empty?
-                            _queue.offer(newUrl);
-                    }
+        _executor.execute(new Runnable() {
+            public void run() {
+                for (UrlDatum url : _subscriber) {
+                    LOGGER.info("Consumed URL from Kafka: " + url);
+                    // TODO what to do when the queue is full? Just spin here until
+                    // it becomes empty?
+                    _queue.offer(url);
                 }
-            });
-        }
+            }
+        });
     }
 
     @Override

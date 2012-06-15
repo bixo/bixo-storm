@@ -84,7 +84,7 @@ public class CrawlerTopology {
         }
     }
     
-    public static StormTopology createTopology(IUrlDatumPubSub pubSub) {
+    public static StormTopology createTopology(IPubSub pubSub) {
         TopologyBuilder builder = new TopologyBuilder();
         builder.setSpout("spout", new UrlSpout(pubSub));
         

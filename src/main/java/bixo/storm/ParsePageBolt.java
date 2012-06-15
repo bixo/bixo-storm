@@ -58,6 +58,15 @@ public class ParsePageBolt implements IRichBolt {
     private transient ParseContext _parseContext;
     private transient OutputCollector _collector;
     
+    private IPubSub _publisher;
+    
+    public ParsePageBolt(IPubSub publisher) {
+        super();
+        
+        _publisher = publisher;
+    }
+    
+
     @SuppressWarnings("rawtypes")
     @Override
     public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {

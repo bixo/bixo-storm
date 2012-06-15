@@ -13,13 +13,13 @@ import kafka.javaapi.producer.Producer;
 import kafka.javaapi.producer.ProducerData;
 import kafka.producer.ProducerConfig;
 
-public class KafkaUrlDatumPubSub implements IUrlDatumPubSub {
+@SuppressWarnings("serial")
+public class KafkaPubSubTopic extends BasePubSubTopic {
 
-    private String _topic;
     private Producer<String, UrlDatum> _producer;
     
-    public KafkaUrlDatumPubSub(String topic) {
-        _topic = topic;
+    public KafkaPubSubTopic(String topic) {
+        super(topic);
         
         Properties producerProps = new Properties();
         producerProps.put("broker.list", "0:localhost:9092");
@@ -46,17 +46,17 @@ public class KafkaUrlDatumPubSub implements IUrlDatumPubSub {
 
         // We create a single consumer per call to get an interator.
         Map<String, Integer> streamInfo = new HashMap<String, Integer>();
-        streamInfo.put(_topic, 1);
+        streamInfo.put(getTopicName(), 1);
 
         KafkaMessageStream<UrlDatum> messages = consumerConnector.createMessageStreams(streamInfo, 
-                        new UrlDatumDecoder()).get(_topic).get(0);
+                        new UrlDatumDecoder()).get(getTopicName()).get(0);
         
         return messages.iterator();
     }
 
     @Override
     public void publish(UrlDatum url) {
-        ProducerData<String, UrlDatum> data = new ProducerData<String, UrlDatum>(_topic, url);
+        ProducerData<String, UrlDatum> data = new ProducerData<String, UrlDatum>(getTopicName(), url);
         _producer.send(data);
     }
 

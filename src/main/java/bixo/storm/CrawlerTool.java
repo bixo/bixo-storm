@@ -200,7 +200,7 @@ public class CrawlerTool {
             // process URLs that the spout gets from Kafka, and update the
             // state of the URLs (and add new ones) by sending messages to
             // the crawlDB using Kafka.
-            StormTopology topology = CrawlerTopology.createTopology();
+            StormTopology topology = CrawlerTopology.createTopology(new LocalPubSub());
             Config stormConf = new Config();
             stormConf.setDebug(true);
             stormConf.setMaxTaskParallelism(3);

@@ -5,6 +5,8 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 
+import org.apache.log4j.Logger;
+
 import backtype.storm.task.OutputCollector;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.BasicOutputCollector;
@@ -20,7 +22,8 @@ import bixo.fetcher.SimpleHttpFetcher;
 
 @SuppressWarnings("serial")
 public class FetchUrlBolt extends BaseRichBolt implements Runnable {
-
+    private static final Logger LOGGER = Logger.getLogger(FetchUrlBolt.class);
+    
     private static final long MIN_SLEEP_TIME = 0;
 
     private static final long MAX_SLEEP_TIME = 100;
@@ -36,12 +39,23 @@ public class FetchUrlBolt extends BaseRichBolt implements Runnable {
     
     private transient OutputCollector _collector;
     
-    public FetchUrlBolt() {
+    private transient BasePubSubTopic _publisher;
+    
+    private IPubSub _topics;
+    
+    public FetchUrlBolt(IPubSub topics) {
+        super();
+        
+        _topics = topics;
     }
+    
     
     @Override
     public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
         _collector = collector;
+        
+        _publisher = _topics.getTopic(IPubSub.UPDATE_URLS_TOPIC_NAME);
+        LOGGER.info("Got publisher " + _publisher);
         
         // TODO use type that supports separate sorted list, keyed
         // by fetch time
@@ -122,13 +136,15 @@ public class FetchUrlBolt extends BaseRichBolt implements Runnable {
 
             if (t != null) {
                 sleepTime = MIN_SLEEP_TIME;
+                String url = t.getStringByField("url");
                 try {
-                    FetchedResult result = _fetcher.fetch(t.getStringByField("url"));
+                    FetchedResult result = _fetcher.fetch(url);
                     // TODO emit results
                     // _collector.emit(anchor, tuple);
                     _collector.ack(t);
                 } catch (Exception e) {
                     // TODO convert exception into status update to Kafka
+                    _publisher.publish(new UrlDatum(url, "error"));
                 }
             }
             

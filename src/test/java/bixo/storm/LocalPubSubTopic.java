@@ -7,15 +7,20 @@ import java.util.List;
 
 import org.apache.log4j.Logger;
 
-public class TestUrlDatumPubSub implements IUrlDatumPubSub {
-    private static final Logger LOGGER = Logger.getLogger(TestUrlDatumPubSub.class);
+@SuppressWarnings("serial")
+public class LocalPubSubTopic extends BasePubSubTopic {
+    private static final Logger LOGGER = Logger.getLogger(LocalPubSubTopic.class);
     
-    private String _topic;
     private List<UrlDatum> _queue;
     
-    public TestUrlDatumPubSub(String topic) {
-        _topic = topic;
+    public LocalPubSubTopic(String topic) {
+        super(topic);
+        
         _queue = Collections.synchronizedList(new LinkedList<UrlDatum>());
+    }
+    
+    public boolean isEmpty() {
+        return _queue.size() == 0;
     }
     
     @Override
@@ -24,21 +29,22 @@ public class TestUrlDatumPubSub implements IUrlDatumPubSub {
 
             @Override
             public boolean hasNext() {
-                while ((_queue.size() == 0) && !Thread.interrupted()) {
+                while (isEmpty() && !Thread.interrupted()) {
                     try {
+                        LOGGER.debug(String.format("Nothing in topic %s, sleeping", getTopicName()));
                         Thread.sleep(100);
                     } catch (InterruptedException e) {
                         return false;
                     }
                 }
                 
-                return true;
+                return !isEmpty();
             }
 
             @Override
             public UrlDatum next() {
                 UrlDatum url = _queue.remove(0);
-                LOGGER.debug(String.format("Consuming from topic %s: %s", _topic, url));
+                LOGGER.debug(String.format("Consuming from topic %s: %s", getTopicName(), url));
                 return url;
             }
 
@@ -51,7 +57,7 @@ public class TestUrlDatumPubSub implements IUrlDatumPubSub {
 
     @Override
     public void publish(UrlDatum url) {
-        LOGGER.debug(String.format("Publishing to topic %s: %s", _topic, url));
+        LOGGER.debug(String.format("Publishing to topic %s: %s", getTopicName(), url));
         
         _queue.add(url);
     }

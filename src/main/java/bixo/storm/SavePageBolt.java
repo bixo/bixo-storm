@@ -13,6 +13,15 @@ public class SavePageBolt implements IRichBolt {
 
     private transient OutputCollector _collector;
     
+    private IPubSub _publisher;
+    
+    public SavePageBolt(IPubSub publisher) {
+        super();
+        
+        _publisher = publisher;
+    }
+    
+
     @SuppressWarnings("rawtypes")
     @Override
     public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
