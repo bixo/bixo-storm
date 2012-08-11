@@ -18,5 +18,6 @@ public abstract class BasePubSubTopic implements Iterable<UrlDatum>, Serializabl
     // Publish a URL to the topic
     public abstract void publish(UrlDatum url);
     
+    public abstract void close();
 
 }

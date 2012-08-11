@@ -21,18 +21,14 @@ import bixo.robots.SimpleRobotRules.RobotRulesMode;
 import bixo.utils.DomainInfo;
 
 @SuppressWarnings("serial")
-public class RobotsBolt extends BaseBasicBolt {
+public class RobotsBolt extends BaseKafkaBolt {
     private static final Logger LOGGER = Logger.getLogger(RobotsBolt.class);
     
     private transient Map<String, SimpleRobotRules> _robotRules;
     private transient Map<String, String> _ipAddresses;
 
-    private BasePubSubTopic _publisher;
-    
-    public RobotsBolt(IPubSub topics) {
-        super();
-        
-        _publisher = topics.getTopic(IPubSub.UPDATE_URLS_TOPIC_NAME);
+    public RobotsBolt(KafkaTopics topics) {
+        super(topics.getTopic(KafkaTopics.UPDATE_URLS_TOPIC_NAME));
     }
     
     @SuppressWarnings("rawtypes")

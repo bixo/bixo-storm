@@ -39,11 +39,11 @@ public class FetchUrlBolt extends BaseRichBolt implements Runnable {
     
     private transient OutputCollector _collector;
     
-    private transient BasePubSubTopic _publisher;
+    private transient KafkaTopic _publisher;
     
-    private IPubSub _topics;
+    private KafkaTopics _topics;
     
-    public FetchUrlBolt(IPubSub topics) {
+    public FetchUrlBolt(KafkaTopics topics) {
         super();
         
         _topics = topics;
@@ -54,7 +54,7 @@ public class FetchUrlBolt extends BaseRichBolt implements Runnable {
     public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
         _collector = collector;
         
-        _publisher = _topics.getTopic(IPubSub.UPDATE_URLS_TOPIC_NAME);
+        _publisher = _topics.getTopic(KafkaTopics.UPDATE_URLS_TOPIC_NAME);
         LOGGER.info("Got publisher " + _publisher);
         
         // TODO use type that supports separate sorted list, keyed

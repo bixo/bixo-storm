@@ -1,22 +1,11 @@
 package bixo.storm;
 
 import java.net.MalformedURLException;
-import java.net.URISyntaxException;
 import java.net.URL;
-import java.net.UnknownHostException;
-import java.util.HashMap;
-import java.util.Map;
-
-import kafka.javaapi.producer.Producer;
-import kafka.javaapi.producer.ProducerData;
 
 import org.apache.log4j.Logger;
 
-import backtype.storm.Config;
-import backtype.storm.LocalCluster;
-import backtype.storm.StormSubmitter;
 import backtype.storm.generated.StormTopology;
-import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.BasicOutputCollector;
 import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.topology.TopologyBuilder;
@@ -24,8 +13,6 @@ import backtype.storm.topology.base.BaseBasicBolt;
 import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
-import bixo.robots.SimpleRobotRules;
-import bixo.utils.DomainInfo;
 
 /**
  * A topology for crawling pages.
@@ -36,14 +23,10 @@ public class CrawlerTopology {
     @SuppressWarnings("serial")
     public static class AddHostname extends BaseBasicBolt {
         
-        private transient Producer<String, UrlDatum> _producer;
+        private KafkaTopic _producer;
         
-        @SuppressWarnings("rawtypes")
-        @Override
-        public void prepare(Map stormConf, TopologyContext context) {
-            super.prepare(stormConf, context);
-            
-            _producer = KafkaUtils.createUrlProducer();
+        public AddHostname(KafkaTopics pubSub) {
+            _producer = pubSub.getTopic(KafkaTopics.UPDATE_URLS_TOPIC_NAME);
         }
         
         @Override
@@ -61,7 +44,7 @@ public class CrawlerTopology {
                 URL realUrl = new URL(url);
                 hostname = realUrl.getHost();
             } catch (MalformedURLException e) {
-                _producer.send(new ProducerData<String, UrlDatum>(CrawlerConfig.KAFKA_UPDATE_TOPIC, new UrlDatum(url, "invalid-url")));
+                _producer.publish(new UrlDatum(url, "invalid-url"));
                 // TODO ack immediately
             }
             
@@ -84,11 +67,11 @@ public class CrawlerTopology {
         }
     }
     
-    public static StormTopology createTopology(IPubSub pubSub) {
+    public static StormTopology createTopology(KafkaTopics pubSub) {
         TopologyBuilder builder = new TopologyBuilder();
         builder.setSpout("spout", new UrlSpout(pubSub));
         
-        builder.setBolt("hostname", new AddHostname(), 5).shuffleGrouping("spout");
+        builder.setBolt("hostname", new AddHostname(pubSub), 5).shuffleGrouping("spout");
         // TODO do URL lengthening here.
         builder.setBolt("robots", new RobotsBolt(pubSub), 5).fieldsGrouping("hostname", new Fields("hostname"));
         builder.setBolt("fetch", new FetchUrlBolt(pubSub), 5).fieldsGrouping("robots", new Fields("ip"));

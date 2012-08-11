@@ -58,9 +58,9 @@ public class ParsePageBolt implements IRichBolt {
     private transient ParseContext _parseContext;
     private transient OutputCollector _collector;
     
-    private IPubSub _publisher;
+    private KafkaTopics _publisher;
     
-    public ParsePageBolt(IPubSub publisher) {
+    public ParsePageBolt(KafkaTopics publisher) {
         super();
         
         _publisher = publisher;

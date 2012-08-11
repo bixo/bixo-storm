@@ -1,5 +1,6 @@
 package bixo.storm;
 
+import java.nio.channels.ClosedByInterruptException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,86 +25,71 @@ import bixo.utils.ThreadedExecutor;
 
 public class CrawlDB implements Runnable {
     private static final Logger LOGGER = Logger.getLogger(CrawlDB.class);
-    
+
     private Map<Long, UrlDatum> _urls;
+    private KafkaTopic _urlPublisher;
+    private KafkaTopic _urlOutlinks;
+    private KafkaTopic _urlUpdates;
     private volatile boolean _active;
-    
-    public CrawlDB(UrlDatum... seedUrls) {
+
+    public CrawlDB(KafkaTopics pubSub, UrlDatum... seedUrls) {
+        _urlPublisher = pubSub.getTopic(KafkaTopics.FETCH_URLS_TOPIC_NAME);
+        _urlOutlinks = pubSub.getTopic(KafkaTopics.OUTLINK_URLS_TOPIC_NAME);
+        _urlUpdates = pubSub.getTopic(KafkaTopics.UPDATE_URLS_TOPIC_NAME);
+
         _urls = new HashMap<Long, UrlDatum>();
         for (UrlDatum url : seedUrls) {
             _urls.put(StringUtils.getLongHash(url.getUrl()), url);
         }
-        
+
     }
-    
+
     @Override
     public void run() {
         _active = true;
-        
-        // Set up to be a Kafka producer, producing URLs to be fetched
-        Producer<String, UrlDatum> producer = KafkaUtils.createUrlProducer();
-        
-        // Set up to be a Kafka consumer, handling URL status updates, and new URLs.
-        Properties consumerProps = new Properties();
-        consumerProps.put("groupid", CrawlerConfig.KAFKA_GROUP_ID);
-        
-        // TODO - figure out what's really needed here.
-        consumerProps.put("consumer.timeout.ms", "" + CrawlerConfig.MAX_CONSUMER_DURATION);
-        consumerProps.put("zk.connect", "127.0.0.1:2181");
-        consumerProps.put("zk.connectiontimeout.ms", "1000000");
-        consumerProps.put("broker.list", "0:localhost:9092");
 
-        // Create the connection to the cluster
-        ConsumerConfig consumerConfig = new ConsumerConfig(consumerProps);
-        ConsumerConnector consumerConnector = Consumer.createJavaConsumerConnector(consumerConfig);
-        
-        // create two threads
-        ThreadedExecutor executor = new ThreadedExecutor(2, CrawlerConfig.MAX_CONSUMER_DURATION);
-        Map<String, Integer> streamInfo = new HashMap<String, Integer>();
-        streamInfo.put(CrawlerConfig.KAFKA_UPDATE_TOPIC, 2);
-        
-        List<KafkaMessageStream<Message>> streams = consumerConnector.createMessageStreams(streamInfo).get(CrawlerConfig.KAFKA_UPDATE_TOPIC);
-        for (final KafkaMessageStream<Message> stream : streams) {
-            LOGGER.info("Executing runnable for stream " + stream.topic());
-            
-            executor.execute(new Runnable() {
-                public void run() {
-                    UrlDatumDecoder decoder = new UrlDatumDecoder();
-                    
-                    ConsumerIterator<Message> iter = stream.iterator();
-                    while (iter.hasNext()) {
-                        Message message = iter.next();
-                        UrlDatum newUrl = decoder.toEvent(message);
-                        LOGGER.info("URL to consume: " + newUrl);
-                        long urlhash = StringUtils.getLongHash(newUrl.getUrl());
+        // create two threads, one for getting updated URLs, and the other for
+        // getting outlinks.
+        ThreadedExecutor executor = new ThreadedExecutor(2, KafkaTopics.MAX_CONSUMER_DURATION);
 
-                        synchronized (_urls) {
-                            UrlDatum curUrl = _urls.get(urlhash);
+        executor.execute(new Runnable() {
+            public void run() {
+                for (UrlDatum url : _urlUpdates) {
+                    LOGGER.info("Consumed updated URL from Kafka: " + url);
+                    long urlhash = StringUtils.getLongHash(url.getUrl());
 
-                            if (curUrl == null) {
-                                // No current entry, better be a new.
-                                if (!newUrl.getStatus().equals("new")) {
-                                    // Houston, we have a problem.
-                                    LOGGER.error("Url status being updated, but doesn't exist: " + newUrl);
-                                } else {
-                                    _urls.put(urlhash, newUrl);
-                                }
-                            } else {
-                                // We need to merge this into a current entry. We always ignore new URLs,
-                                // as anything in the crawlDB is more important.
-                                if (!newUrl.getStatus().equals("new")) {
-                                    // TODO - do real merge.
-                                    _urls.put(urlhash, newUrl);
-                                }
-                            }
+                    synchronized (_urls) {
+                        UrlDatum curUrl = _urls.get(urlhash);
+
+                        if (curUrl == null) {
+                            LOGGER.error("Url status being updated, but doesn't exist: " + url);
+                        } else {
+                            _urls.put(urlhash, url);
                         }
-                    } 
+                    }
                 }
-            });
-        }
+            }
+        });
 
+        executor.execute(new Runnable() {
+            public void run() {
+                for (UrlDatum url : _urlOutlinks) {
+                    LOGGER.info("Consumed outlink URL from Kafka: " + url);
+                    long urlhash = StringUtils.getLongHash(url.getUrl());
+
+                    synchronized (_urls) {
+                        UrlDatum curUrl = _urls.get(urlhash);
+
+                        if (curUrl == null) {
+                            _urls.put(urlhash, url);
+                        }
+                    }
+                }
+            }
+        });
+
+        // We also need to continuously generate URLs to be fetched.
         try {
-            // We want to continuously generate URLs to be fetched
             while (!Thread.interrupted()) {
                 try {
                     Thread.sleep(100);
@@ -113,9 +99,8 @@ public class CrawlDB implements Runnable {
                         for (Entry<Long, UrlDatum> url : _urls.entrySet()) {
                             if (url.getValue().getStatus() == "unfetched") {
                                 LOGGER.info("Publishing URL to Kafka: " + url.getValue().getUrl());
-                                
-                                ProducerData<String, UrlDatum> data = new ProducerData<String, UrlDatum>(CrawlerConfig.KAFKA_FETCH_TOPIC, url.getValue());
-                                producer.send(data);
+
+                                _urlPublisher.publish(url.getValue());
 
                                 url.getValue().setStatus("fetching");
                                 break;
@@ -123,45 +108,34 @@ public class CrawlDB implements Runnable {
                         }
                     }
                 } catch (InterruptedException e) {
+                    LOGGER.info("CrawlDB interrupted");
                     Thread.currentThread().interrupt();
                 }
             }
         } finally {
-            LOGGER.info("Closing the CrawlDB Kafka producer");
-            producer.close();
-
-            LOGGER.info("Shutting down CrawlDB Kafka consumer");
-            consumerConnector.shutdown();
-            
             // Now we need to shut down the executor, since we're doing running.
             LOGGER.info("Terminating CrawlDB Kafka consumer threads");
 
             try {
                 // TODO set appropriate termination wait time
-                executor.terminate(10000);
+                if (!executor.terminate(100L)) {
+                    // TODO - This always happens, but we'd like to avoid it
+                    LOGGER.warn("Couldn't terminate CrawlDB Kakfa consumers");
+                }
             } catch (InterruptedException e) {
                 // TODO what to do here?
+                LOGGER.error("Interrupted while terminating CrawlDB Kakfa consumers");
             }
 
+            // We need to explicitly close down our publisher.
+            _urlPublisher.close();
+            
             _active = false;
         }
     }
-    
+
     public boolean isActive() {
         return _active;
     }
-    
-    public void terminate(Thread t) {
-        t.interrupt();
-        
-        // TODO - what about timeout here?
-        while (isActive() && !Thread.interrupted()) {
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                // TODO - what to do here?
-                Thread.currentThread().interrupt();
-            }
-        }
-    }
+
 }

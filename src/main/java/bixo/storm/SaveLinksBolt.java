@@ -16,12 +16,12 @@ public class SaveLinksBolt implements IRichBolt {
     private transient LinkedHashMap<String, Object> _tuples;
     private int _threshold;
     
-    private BasePubSubTopic _publisher;
+    private KafkaTopic _publisher;
     
-    public SaveLinksBolt(IPubSub topics, int threshold) {
+    public SaveLinksBolt(KafkaTopics topics, int threshold) {
         super();
         
-        _publisher = topics.getTopic(IPubSub.OUTLINK_URLS_TOPIC_NAME);
+        _publisher = topics.getTopic(KafkaTopics.OUTLINK_URLS_TOPIC_NAME);
         _threshold = threshold;
     }
     

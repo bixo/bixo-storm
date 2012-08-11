@@ -13,7 +13,6 @@ import backtype.storm.topology.base.BaseRichSpout;
 import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Values;
 import backtype.storm.utils.Utils;
-import bixo.utils.ThreadedExecutor;
 
 @SuppressWarnings("serial")
 public class UrlSpout extends BaseRichSpout {
@@ -21,37 +20,31 @@ public class UrlSpout extends BaseRichSpout {
     
     private static final int MAX_QUEUED_URLS = 1000;
 
-    private final BasePubSubTopic _subscriber;
+    private final KafkaTopic _subscriber;
     
     protected transient SpoutOutputCollector _collector;
     private transient LinkedBlockingQueue<UrlDatum> _queue = null;
-    private transient ThreadedExecutor _executor;
     
-    public UrlSpout(IPubSub topics) {
+    public UrlSpout(KafkaTopics topics) {
         super();
         
-        _subscriber = topics.getTopic(IPubSub.FETCH_URLS_TOPIC_NAME);
+        _subscriber = topics.getTopic(KafkaTopics.FETCH_URLS_TOPIC_NAME);
     }
     
     @SuppressWarnings("rawtypes")
     @Override
     public void open(Map conf, TopologyContext context, SpoutOutputCollector collector) {
         _collector = collector;
-
         _queue = new LinkedBlockingQueue<UrlDatum>(MAX_QUEUED_URLS);
 
-        _executor = new ThreadedExecutor(1, CrawlerConfig.MAX_CONSUMER_DURATION);
-
-        _executor.execute(new Runnable() {
-            public void run() {
-                for (UrlDatum url : _subscriber) {
-                    LOGGER.info("Consumed URL from Kafka: " + url);
-                    // TODO what to do when the queue is full? Just spin here until
-                    // it becomes empty?
-                    _queue.offer(url);
-                }
-            }
-        });
+        // We're already running in a thread (handled by Storm) so we're OK even
+        // though the call to Kafka will block.
+        for (UrlDatum url : _subscriber) {
+            LOGGER.info("Consumed URL from Kafka: " + url);
+            // TODO what to do when the queue is full? Just spin here until
+            // it becomes empty?
+            _queue.offer(url);
+        }
     }
 
     @Override
@@ -75,5 +68,5 @@ public class UrlSpout extends BaseRichSpout {
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
         declarer.declare(new Fields("url", "status"));
     }
-
+    
 }

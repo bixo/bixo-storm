@@ -13,9 +13,9 @@ public class SavePageBolt implements IRichBolt {
 
     private transient OutputCollector _collector;
     
-    private IPubSub _publisher;
+    private KafkaTopics _publisher;
     
-    public SavePageBolt(IPubSub publisher) {
+    public SavePageBolt(KafkaTopics publisher) {
         super();
         
         _publisher = publisher;
