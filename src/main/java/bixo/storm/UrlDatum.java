@@ -1,35 +1,28 @@
 package bixo.storm;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
-import java.io.Serializable;
-
-import org.apache.hadoop.io.Writable;
-
 /**
- * UrlDatum needs to be writable for our Kafka serialization, and
- * serializable for our LocalPubSubTopic.
- * 
- * @author kenkrugler
+ * UrlDatum contains information about one URL
  *
  */
-@SuppressWarnings("serial")
-public class UrlDatum implements Serializable, Writable {
+public class UrlDatum implements Comparable<UrlDatum> {
 
-    // TODO change status to enum (need to update UrlDatumEncoder/decoder, etc)
-    // TODO add status time field.
+    public static final long UNSET_FETCH_TIME = Long.MIN_VALUE;
+    public static final double UNSET_SCORE = Double.NEGATIVE_INFINITY;
+
+    public static final double DEFAULT_SCORE = 1.0;
     
     private String _url;
-    private String _status;
+    private UrlStatus _status;
+    private long _statusTime;
+    private long _fetchTime;
+    private double _score;
     
-    public UrlDatum() {
-        // Empty constructor for deserialization
-    }
-    
-    public UrlDatum(String url, String status) {
+    public UrlDatum(String url, UrlStatus status, long statusTime, long fetchTime, double score) {
         _url = url;
         _status = status;
+        _statusTime = statusTime;
+        _fetchTime = fetchTime;
+        _score = score;
     }
 
     public String getUrl() {
@@ -40,53 +33,58 @@ public class UrlDatum implements Serializable, Writable {
         _url = url;
     }
 
-    public String getStatus() {
+    public UrlStatus getStatus() {
         return _status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(UrlStatus status) {
         _status = status;
     }
 
-    @Override
-    public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((_url == null) ? 0 : _url.hashCode());
-        return result;
+    public long getStatusTime() {
+        return _statusTime;
     }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
-        if (obj == null)
-            return false;
-        if (getClass() != obj.getClass())
-            return false;
-        UrlDatum other = (UrlDatum) obj;
-        if (_url == null) {
-            if (other._url != null)
-                return false;
-        } else if (!_url.equals(other._url))
-            return false;
-        return true;
+    
+    public void setStatusTime(long statusTime) {
+        _statusTime = statusTime;
+    }
+    
+    public long getFetchTime() {
+        return _fetchTime;
+    }
+    
+    public void setFetchTime(long fetchTime) {
+        _fetchTime = fetchTime;
+    }
+    
+    public double getScore() {
+        return _score;
+    }
+    
+    public void setScore(double score) {
+        _score = score;
     }
     
     @Override
     public String toString() {
-        return String.format("%s %s", _status, _url);
-    }
-    
-    @Override
-    public void readFields(DataInput in) throws IOException {
-        _url = in.readUTF();
-        _status = in.readUTF();
+        return String.format("%s: %s", _status, _url);
     }
 
+    /* (non-Javadoc)
+     * @see java.lang.Comparable#compareTo(java.lang.Object)
+     * 
+     * Return ordering by score, from high to low.
+     */
     @Override
-    public void write(DataOutput out) throws IOException {
-        out.writeUTF(_url);
-        out.writeUTF(_status);
+    public int compareTo(UrlDatum o) {
+        if (_score > o._score) {
+            return -1;
+        } else if (_score < o._score) {
+            return 1;
+        } else {
+            // TODO KKr - order by fetch time
+            return 0;
+        }
     }
+    
 }

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<keyspace xmlns="http://xml.dataset.cassandraunit.org">
+    <name>urls</name>
+    <columnFamilies>
+        <columnFamily>
+            <name>urls</name>
+        </columnFamily>
+    </columnFamilies>
+</keyspace>

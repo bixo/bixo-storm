@@ -211,7 +211,7 @@ public class CrawlerTool {
             stormCluster = new LocalCluster();
             stormCluster.submitTopology("bixo-storm", stormConf, topology);
         
-            crawlDbThread = new Thread(new CrawlDB(new UrlDatum("http://cnn.com", "unfetched")));
+            crawlDbThread = new Thread(new CrawlDBClient(new UrlDatum("http://cnn.com", "unfetched")));
             crawlDbThread.start();
             
             // Wait a bit for things to settle down

@@ -1,4 +1,4 @@
-package bixo.storm;
+package bixo.storm.bolt;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -8,6 +8,7 @@ import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.IRichBolt;
 import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.tuple.Tuple;
+import bixo.storm.UrlDatum;
 
 @SuppressWarnings("serial")
 public class SaveLinksBolt implements IRichBolt {

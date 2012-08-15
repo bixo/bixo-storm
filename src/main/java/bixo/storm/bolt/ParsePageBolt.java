@@ -1,4 +1,4 @@
-package bixo.storm;
+package bixo.storm.bolt;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -34,23 +34,12 @@ import bixo.parser.BaseContentExtractor;
 import bixo.parser.BaseLinkExtractor;
 import bixo.parser.HtmlContentExtractor;
 import bixo.parser.SimpleLinkExtractor;
+import bixo.storm.BixoConfig;
+import bixo.storm.TikaCallable;
 import bixo.utils.IoUtils;
 
 @SuppressWarnings("serial")
 public class ParsePageBolt implements IRichBolt {
-
-    /**
-     * Fixed version of Tika 1.0's IdentityHtmlMapper
-     */
-    private static class FixedIdentityHtmlMapper extends IdentityHtmlMapper implements Serializable {
-
-        public static final HtmlMapper INSTANCE = new FixedIdentityHtmlMapper();
-
-        @Override
-        public String mapSafeElement(String name) {
-            return name.toLowerCase(Locale.ENGLISH);
-        }
-    }
 
     private transient Parser _parser;
     private transient BaseContentExtractor _contentExtractor;
@@ -58,9 +47,7 @@ public class ParsePageBolt implements IRichBolt {
     private transient ParseContext _parseContext;
     private transient OutputCollector _collector;
     
-    private IPubSub _publisher;
-    
-    public ParsePageBolt(IPubSub publisher) {
+    public ParsePageBolt(BixoConfig config) {
         super();
         
         _publisher = publisher;

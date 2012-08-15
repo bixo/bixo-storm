@@ -1,4 +1,4 @@
-package bixo.storm;
+package bixo.storm.bolt;
 
 import java.util.Map;
 

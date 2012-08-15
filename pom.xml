@@ -81,6 +81,16 @@
     		<groupId>com.bixolabs</groupId>
 			<artifactId>html.utils</artifactId>
 			<version>1.0-SNAPSHOT</version>
+                        <exclusions>
+                <exclusion>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+                </exclusion>
+                <exclusion>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+                        </exclusions>
 		</dependency>
 
 		<dependency>
@@ -93,6 +103,30 @@
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-core</artifactId>
             <version>0.20.2</version>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.apache.cassandra</groupId>
+            <artifactId>cassandra-all</artifactId>
+            <exclusions>
+                <exclusion>
+                <!-- This pulls in guava r08, which isn't what we need -->
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      </exclusion>
+      </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.ptgoetz</groupId>
+            <artifactId>storm-cassandra</artifactId>
+            <version>0.2.1-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.netflix.astyanax</groupId>
+            <artifactId>astyanax</artifactId>
+            <version>1.0.6</version>
         </dependency>
         
         <!-- Provided -->
@@ -128,6 +162,12 @@
             <scope>test</scope>
         </dependency>
 
+		<dependency>
+            <groupId>org.cassandraunit</groupId>
+            <artifactId>cassandra-unit</artifactId>
+            <version>1.0.3.1</version>
+            <scope>test</scope>
+        </dependency>
 	</dependencies>
 
     <dependencyManagement>
@@ -138,6 +178,27 @@
                 <version>3.3.5</version>
                 <scope>provided</scope>
             </dependency>
+            
+            <dependency>
+                <groupId>org.apache.cassandra</groupId>
+                <artifactId>cassandra-all</artifactId>
+                <version>1.0.6</version>
+            </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.6.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-log4j12</artifactId>
+      <version>1.6.1</version>
+    </dependency>
+
         </dependencies>
+        
+        
     </dependencyManagement>
 </project>

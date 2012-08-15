@@ -25,6 +25,11 @@ import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
 import bixo.robots.SimpleRobotRules;
+import bixo.storm.bolt.AddHostnameBolt;
+import bixo.storm.bolt.ParsePageBolt;
+import bixo.storm.bolt.RobotsBolt;
+import bixo.storm.bolt.SaveLinksBolt;
+import bixo.storm.bolt.SavePageBolt;
 import bixo.utils.DomainInfo;
 
 /**
@@ -32,42 +37,6 @@ import bixo.utils.DomainInfo;
  */
 public class CrawlerTopology {
     private static final Logger LOGGER = Logger.getLogger(CrawlerTopology.class);
-    
-    @SuppressWarnings("serial")
-    public static class AddHostname extends BaseBasicBolt {
-        
-        private transient Producer<String, UrlDatum> _producer;
-        
-        @SuppressWarnings("rawtypes")
-        @Override
-        public void prepare(Map stormConf, TopologyContext context) {
-            super.prepare(stormConf, context);
-            
-            _producer = KafkaUtils.createUrlProducer();
-        }
-        
-        @Override
-        public void declareOutputFields(OutputFieldsDeclarer declarer) {
-            declarer.declare(new Fields("url", "status", "hostname"));
-        }
-
-        @Override
-        public void execute(Tuple input, BasicOutputCollector collector) {
-            String url = input.getStringByField("url");
-            String status = input.getStringByField("status");
-            String hostname = "UNKNOWN";
-            
-            try {
-                URL realUrl = new URL(url);
-                hostname = realUrl.getHost();
-            } catch (MalformedURLException e) {
-                _producer.send(new ProducerData<String, UrlDatum>(CrawlerConfig.KAFKA_UPDATE_TOPIC, new UrlDatum(url, "invalid-url")));
-                // TODO ack immediately
-            }
-            
-            collector.emit(new Values(url, status, hostname));
-        }
-    }  
     
     @SuppressWarnings("serial")
     public static class TupleLogger extends BaseBasicBolt {
@@ -84,21 +53,21 @@ public class CrawlerTopology {
         }
     }
     
-    public static StormTopology createTopology(IPubSub pubSub) {
+    public static StormTopology createTopology(BixoConfig config) {
         TopologyBuilder builder = new TopologyBuilder();
-        builder.setSpout("spout", new UrlSpout(pubSub));
+        builder.setSpout("spout", new UrlSpout(config));
         
-        builder.setBolt("hostname", new AddHostname(), 5).shuffleGrouping("spout");
+        builder.setBolt("hostname", new AddHostnameBolt(config), 5).shuffleGrouping("spout");
         // TODO do URL lengthening here.
-        builder.setBolt("robots", new RobotsBolt(pubSub), 5).fieldsGrouping("hostname", new Fields("hostname"));
-        builder.setBolt("fetch", new FetchUrlBolt(pubSub), 5).fieldsGrouping("robots", new Fields("ip"));
-        builder.setBolt("parse", new ParsePageBolt(pubSub), 5).shuffleGrouping("fetch");
+        builder.setBolt("robots", new RobotsBolt(config), 5).fieldsGrouping("hostname", new Fields("hostname"));
+        builder.setBolt("fetch", new FetchUrlBolt(config), 5).fieldsGrouping("robots", new Fields("ip"));
+        builder.setBolt("parse", new ParsePageBolt(config), 5).shuffleGrouping("fetch");
         
         // Get the parse results into S3
-        builder.setBolt("store", new SavePageBolt(pubSub), 5).shuffleGrouping("parse-content");
+        builder.setBolt("store", new SavePageBolt(config), 5).shuffleGrouping("parse-content");
         
         // Send the outlinks back to the crawlDB, to be merged in.
-        builder.setBolt("links", new SaveLinksBolt(pubSub, 10000), 5).fieldsGrouping("parse-links", new Fields("outlink"));
+        builder.setBolt("links", new SaveLinksBolt(config, 10000), 5).fieldsGrouping("parse-links", new Fields("outlink"));
         
         return builder.createTopology();
     }

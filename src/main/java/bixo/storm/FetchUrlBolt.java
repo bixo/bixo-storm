@@ -28,6 +28,9 @@ public class FetchUrlBolt extends BaseRichBolt implements Runnable {
 
     private static final long MAX_SLEEP_TIME = 100;
     
+    private CrawlDBClient _cdbClient;
+    private SimpleHttpFetcher _fetcher;
+
     // TODO use native long/long for efficiency
     // TODO all structures must be thread-safe
     private transient Map<Long, Long> _ipToFetchTime;
@@ -35,27 +38,20 @@ public class FetchUrlBolt extends BaseRichBolt implements Runnable {
     private transient Queue<Tuple> _fetchLater;
     
     private transient Thread _backgroundFetcher;
-    private transient SimpleHttpFetcher _fetcher;
     
     private transient OutputCollector _collector;
     
-    private transient BasePubSubTopic _publisher;
-    
-    private IPubSub _topics;
-    
-    public FetchUrlBolt(IPubSub topics) {
+    public FetchUrlBolt(BixoConfig config) {
         super();
         
-        _topics = topics;
+        _cdbClient = config.getCdbClient();
+        _fetcher = config.getPageFetcher();
     }
     
     
     @Override
     public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
         _collector = collector;
-        
-        _publisher = _topics.getTopic(IPubSub.UPDATE_URLS_TOPIC_NAME);
-        LOGGER.info("Got publisher " + _publisher);
         
         // TODO use type that supports separate sorted list, keyed
         // by fetch time
@@ -67,15 +63,11 @@ public class FetchUrlBolt extends BaseRichBolt implements Runnable {
         // TODO set appropriate capacity from constructor parameter
         _fetchLater = new ArrayBlockingQueue<Tuple>(1000);
         
-        // TODO pass in fetcher policy, user agent info to constructor.
-        _fetcher = new SimpleHttpFetcher(1, new UserAgent("test", "email@domain.com", "http://domain.com"));
-        
         // Set up thread that is constantly fetching items.
-        _backgroundFetcher = new Thread(this);
+        _backgroundFetcher = new Thread(this, "Bixo background fetcher");
         _backgroundFetcher.start();
 
-        // TODO Auto-generated method stub
-        // what else do I need to do here? What was BaseBasicBolt do?
+        // what else do I need to do here? What does BaseBasicBolt do?
         
     }
     
@@ -93,6 +85,7 @@ public class FetchUrlBolt extends BaseRichBolt implements Runnable {
             if (targetTime <= System.currentTimeMillis()) {
                 _fetchNow.offer(input);
             } else {
+                // TODO - use priority queue ordered by score?
                 _fetchLater.offer(input);
             }
         }
@@ -143,8 +136,8 @@ public class FetchUrlBolt extends BaseRichBolt implements Runnable {
                     // _collector.emit(anchor, tuple);
                     _collector.ack(t);
                 } catch (Exception e) {
-                    // TODO convert exception into status update to Kafka
-                    _publisher.publish(new UrlDatum(url, "error"));
+                    // TODO convert exception into status update in CrawlDB
+                    _cdbClient.updateUrlQuietly(url, UrlStatus.HTTP_CLIENT_ERROR);
                 }
             }
             
